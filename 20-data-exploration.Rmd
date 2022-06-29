@@ -1,0 +1,11 @@
+---
+title: "20-data-exploration"
+output: html_notebook
+---
+
+The purpose of this notebook is for EDA. However, due to time constraints, much of the EDA was completed in the 10 series of notebooks.
+
+```{r}
+#Helpful imports
+library(DataExplorer)
+```

@@ -1,0 +1,298 @@
+---
+title: "31-stock-forecast"
+output: html_notebook
+---
+
+The purpose of this notebook is forecasting - using both current features and by generating new features based upon the originals with assumptions.  The forecasts should also be tested here to ensure that they  meet expectations and assumptions about them. 
+
+# Load cleaned data
+
+```{r Load}
+source(knitr::purl("10-load-data.Rmd"))
+fs::file_delete("10-load-data.R")
+
+#Case Study data
+stock_ts = readRDS("clean_data/stock_ts")
+
+#External data
+ev_state_stock = readRDS("clean_data/ev_state_stock")
+state_stock = readRDS("clean_data/state_stock")
+
+#stock_ts
+#ev_state_stock
+#state_stock
+
+#can calculate ratio LDV AZ to US
+#can calculate multipty US stock by ratio
+#can calculate diff btw assumed EVs and NREL reported EVs
+#can calculate ratio EV types with EVs
+#can add missing EVs and substract from traditional ICE cars
+#2020 done, accurate
+
+#done
+
+#30398249
+#425300
+
+```
+
+# Calculate Ratio AZ vehicles to US vehicles
+
+
+```{r ratio}
+plot(stock_ts)
+
+value_us_stock = sum(state_stock$Vehicles)
+value_us_stock
+
+az_stock = state_stock %>% filter(State==STATE_KEY)
+value_az_stock = sum(az_stock$Vehicles)
+value_az_stock
+
+az_stock_ratio = value_az_stock/value_us_stock
+az_stock_percent = (value_az_stock/value_us_stock)*100
+az_stock_percent
+#2.194
+
+```
+
+According to data from BTS, at `r value_az_stock` units, Arizona represented `az_stock_percent`% of the total US vehicle fleet in 2020. If we assume that Arizona LDV vehicles are the same percentage of US LDV fleets by type, we can estimate the number of each LDV type in Arizona in 2020 from the orginal EIA data.
+
+# Estimate Arizona LDV stock
+
+```{r}
+
+az_stock_ts = stock_ts * az_stock_ratio
+plot(az_stock_ts)
+
+az_stock_percent
+```
+
+# Adjust estimate to reflect known AZ EV Stock
+
+From our exploratory data analysis of NREL data, it is known that AZ's 2020 stock has proportionately more electric vehicles than other states. While total vehicle registrations is not 1:1 with total vehicle stock, we can use this information to update Arizona's EV stock in our original estimate (since we know this bucks natinal trends). We will assume that EV vehicles added to the estimate 'subtract' from the conventional gasoline equivalent vehicle type.
+
+```{r ev_ratio}
+
+ev_state_stock
+
+value_us_ev = sum(ev_state_stock$ev_stock)
+value_us_ev
+
+ev_az_stock = ev_state_stock %>% filter(State==STATE_KEY)
+value_az_ev = sum(ev_az_stock$ev_stock)
+value_az_ev
+
+az_ev_ratio = value_az_ev/value_us_ev
+az_ev_percent = (value_az_ev/value_us_ev)*100
+az_ev_percent
+#2.82%
+
+###
+az_ev_factor = az_ev_ratio/az_stock_ratio - 1
+az_ev_factor_perc = az_ev_factor * 100
+az_ev_factor_perc
+###urgent, need to reevaluate how this ratio is used... only makes sense to use this ratio for EV fleet if it was ORIGNALLY applied to us stock.
+
+#us*az = 
+  
+#100, 2
+
+#100, 3
+
+#2 * 1.5
+
+#2.82/2.194
+
+#arizona has 28% more EVs than average state, multiply by 1.28?
+```
+
+
+Arizona features `r az_ev_percent`% of US EV registrations, despite only containing `az_stock_percent`% of the total US vehicle fleet in 2020. Therefore, Arizona has `r az_ev_factor_perc`% more EVs than the average state
+
+# Update stock
+
+The following section updates Arizona's EV fleets to contain `r az_ev_factor_perc`% more EVs per year, under the assumption that Arizona maintains this relative ratio of vehicles compared to other states. With each annual adjustment, an equivalent amount of conventional ICE cars and conventional ICE trucks are deducted from the state's stock, under the assumption that EV sales offset ICE vehicle sales. The result is a complete time series of LDV stock for Arizona thought 2030.
+
+# Estimate Arizona LDV stock
+
+## Adjusts for known AZ EVs and, if GOAL == TRUE, adjusts for EV stock targets
+
+```{r ev_stock_adjust}
+
+az_stock_ts
+
+
+az_stock_adj_ts = az_stock_ts
+
+dim(az_stock_adj_ts)
+az_stock_ts
+az_stock_adj_ts
+
+#EV index:
+#4,5,6 EV passenger
+#20,21,22 EV truck
+
+#ICE index:
+#1 ICE passenger
+#17 ICE Truck
+
+#Year index
+
+# Adds EV cars, subtracts ICE cars
+
+for (y in c(4,5,6)){
+  for (x in 1:12){
+  az_stock_adj_ts[x,1] = az_stock_adj_ts[x,1] - (az_stock_adj_ts[x,y] * (az_ev_factor)) 
+  #new GAS stock = old GAS stock - ( old EV stock * added EV ratio )
+  az_stock_adj_ts[x,y] = az_stock_adj_ts[x,y] * (1+az_ev_factor)
+  #new EV stock = old EV stock * (1 + added EV ratio)
+  }
+}
+#az_stock_adj_ts
+
+# Adds EV trucks, subtracts ICE trucks
+
+for (y in c(20,21,22)){
+  for (x in 1:12){
+  az_stock_adj_ts[x,17] = az_stock_adj_ts[x,17] - (az_stock_adj_ts[x,y] * (az_ev_factor)) 
+  #new GAS stock = old GAS stock - ( old EV stock * added EV ratio )
+  az_stock_adj_ts[x,y] = az_stock_adj_ts[x,y] * (1+az_ev_factor)
+  #new EV stock = old EV stock * (1 + added EV ratio)
+  }
+}
+
+az_stock_adj_ts
+
+#############
+
+# In 2030, adds EV cars, subtracts ICE cars to meet goal
+
+if (GOAL == TRUE){
+  
+  goal_ratio = EV_TARGET
+  
+  EV_sum_2030 = sum(az_stock_adj_ts[12,c(4,5,6,20,21,22)])
+  veh_sum_2020 = sum(az_stock_adj_ts[12])
+  
+  
+  
+  pre_goal_ratio = EV_sum_2030 / veh_sum_2020
+  pre_goal_ratio
+  #finds current proportion of EV veh in 2030
+  
+  
+  EV_add_2030 = veh_sum_2020 * (goal_ratio - pre_goal_ratio)
+  #finds needed number of EVs to meet EV proportion goal
+  #assumes total does not change, i.e., every EV added replaces equivalent ICE vehicle
+  
+  EV_add_2030
+  
+  EV_sum_2030_goal = veh_sum_2020 * goal_ratio
+  EV_sum_2030_goal == EV_add_2030 + EV_sum_2030 #TRUE, good
+  #checks to make sure added vehs properly change proportion
+  
+
+  # loop below incrementally adds EV cars and subtracts ICE cars to hit 2030 goal
+  
+  for (y in c(4,5,6)){
+    
+    ratio = as.numeric(az_stock_adj_ts[12,y]) / EV_sum_2030
+    # expected proportion of this EV truck type for EV target
+    # stays at 12th year because that is target
+    
+    for (x in 1:12){
+    
+    EV_add_2030
+    #2544188
+    
+    ev_add_this_type = EV_add_2030 * ratio * ( (x-1)/11 ) #to not modify 2019
+    # EVs added in equal increments to arrive at target
+    
+    az_stock_adj_ts[x,1] = az_stock_adj_ts[x,1] - (ev_add_this_type)
+    #new GAS stock = old GAS stock - ( added EVs this type to meet goal )
+    
+    #START2352849
+    #END..2352463
+    
+    az_stock_adj_ts[x,y] = az_stock_adj_ts[x,y] + (ev_add_this_type)
+    #new EV stock = old EV stock + ( added EVs this type to meet goal)
+    
+    #START11.48813
+    #END..397.2713
+    }
+  }
+  
+  
+  # loop below incrementally adds EV trucks and subtracts ICE trucks to hit 2030 goal
+  
+  for (y in c(20,21,22)){
+    
+    ratio = as.numeric(az_stock_adj_ts[12,y]) / EV_sum_2030
+    # expected proportion of this EV truck type for EV target
+    # stays at 12th year because that is target
+    
+    for (x in 1:12){
+    
+    EV_add_2030
+    #2544188
+    
+    ev_add_this_type = EV_add_2030 * ratio * ( (x-1)/11 ) #to not modify 2019
+    # EVs added incrementally
+    
+    az_stock_adj_ts[x,17] = az_stock_adj_ts[x,17] - (ev_add_this_type)
+    #new GAS stock = old GAS stock - ( added EVs this type to meet goal )
+    
+    #START2352849
+    #END..2352463
+    
+    az_stock_adj_ts[x,y] = az_stock_adj_ts[x,y] + (ev_add_this_type)
+    #new EV stock = old EV stock + ( added EVs this type to meet goal)
+    
+    #START11.48813
+    #END..397.2713
+    }
+  }
+}
+
+
+az_stock_adj_ts
+
+
+#ev300 2030 pregoal
+#123000
+
+#postgoal
+
+##############
+
+# Test to make sure only desired vehicle type are modified
+# for (y in c(4,5,6)){
+#   for (x in 1:12){
+#   az_stock_adj_ts[x,1] = az_stock_adj_ts[x,1] * -1 #- (az_stock_adj_ts[x,y] * (az_ev_ratio))
+#   az_stock_adj_ts[x,y] = az_stock_adj_ts[x,y] * -1#(1+az_ev_ratio)
+#   }
+# }
+# az_stock_adj_ts
+
+#plot(az_stock_ts)
+plot(az_stock_adj_ts)
+```
+##Write to RDS
+
+``` {r export answer}
+
+if (GOAL == FALSE){
+
+saveRDS(az_stock_adj_ts, paste("states/",STATE_KEY,"/ldv_stock_2019_2030",sep=""))
+
+} else {
+  
+saveRDS(az_stock_adj_ts, paste("states/",STATE_KEY,"/ldv_stock_2019_2030_EVGOAL_",EV_TARGET,sep=""))
+
+}
+
+
+```
+
+

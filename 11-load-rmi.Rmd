@@ -1,0 +1,235 @@
+---
+title: "11-load-rmi"
+output:
+  html_notebook:
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+    number_sections: true
+---
+
+## Load libs, common functions
+```{r Load rmi}
+source(knitr::purl("10-load-data.Rmd"))
+fs::file_delete("10-load-data.R")
+pacman::p_load(DataExplorer)
+```
+
+# LDV National Stock Forecast
+This contains Light Duty Vehicle (LDV) stock projections for the United States through 2050 by vehicle type. It does not contain state level stock. It will need to be grouped into RMI vehicle categories and formatted correctly.
+
+```{r load ldv_stock_natl_frcst}
+
+ldv_stock_natl_frcst <- read_excel("LDV_Stock_National.xlsx", skip=5)
+ldv_stock_natl_frcst
+
+```
+
+To clean the data, we'll be dropping full NA columns and rows.  Let's check to see the effect of this:
+
+```{r check ldv_stock_natl_frcst NAs, fig.height=8, purl=FALSE}
+plot_missing(ldv_stock_natl_frcst)
+
+```
+Looks like there's no NA columns or rows. However, upon examination the 'Growth (2019-2050)' column is a character, not a dbl, and features NA values. Since this column is not needed, it will be removed, as well as other redundant columns that do not usefully identify the vehicle stock.
+
+```{r clean ldv_stock_natl_frcst}
+ldv_stock_natl_frcst <- ldv_stock_natl_frcst %>%
+  clean_names() %>%
+  select(-growth_2019_2050, -vehicle_category, -fuel_type, -api_key, -units)
+
+ldv_stock_natl_frcst[] <- lapply(ldv_stock_natl_frcst, gsub, pattern='Light-Duty Vehicle Stock: ', replacement='')
+
+ldv_stock_natl_frcst
+```
+
+
+# LDV Fuel Economy Forecast
+This contains Light Duty Vehicle (LDV) fuel economy projections for the United States through 2050 by vehicle type. It does not consider information at the state level. It will need to be grouped into RMI vehicle categories and formatted correctly.
+
+```{r load ldv_fuel_econ}
+
+ldv_fuel_econ <- read_excel("LDV_Fuel_Economy.xlsx", skip=5)
+ldv_fuel_econ
+
+```
+
+To clean the data, we'll be dropping full NA columns and rows.  Let's check to see the effect of this:
+
+```{r check ldv_fuel_econ, fig.height=8, purl=FALSE}
+plot_missing(ldv_fuel_econ)
+
+```
+Looks like there's no NA columns or rows. There are no redundant columns nor is any data formatted incorrectly. The vehicle type column is renamed to match the last df.
+
+
+```{r clean ldv_fuel_econ}
+ldv_fuel_econ <- ldv_fuel_econ %>%
+  clean_names() %>% rename(full_name = x1)
+
+ldv_fuel_econ
+```
+
+# Suggested_VEH_Crosswalk
+
+# LDV Fuel Economy Forecast
+This contains Light Duty Vehicle (LDV) fuel economy projections for the United States through 2050 by vehicle type. It does not consider information at the state level. It will need to be grouped into RMI vehicle categories and formatted correctly.
+
+```{r load ldv_cross}
+
+ldv_cross <- read_excel("Suggested_VEH_Crosswalk.xlsx") 
+ldv_cross <- ldv_cross %>% clean_names() %>% select(-
+table_39_vehicle_category, -table_39_fuel) %>% rename(full_name = table_40)
+
+ldv_cross
+
+```
+
+# Standard Vehicle Types
+
+In this section, we standardize vehicle types across all datasets, removing redundant summary rows and adding a new column for RMI classification
+
+
+```{r standard_veh_types}
+
+ldv_cross 
+ldv_fuel_econ
+ldv_stock_natl_frcst 
+
+ldv_cross_std = ldv_cross
+
+ldv_stock_std = ldv_stock_natl_frcst %>% filter(!row_number() %in% c(3,18,19,22,37,38)) #3,18,19,22,37,38 
+ldv_stock_std
+
+ldv_fuel_std = ldv_fuel_econ %>% filter(!row_number() %in% c(17,34:42 )) #17,34:42 
+ldv_fuel_std
+
+unique(ldv_cross_std$full_name) == unique(ldv_fuel_std $full_name) #fuel and cross are same, need fix stock
+
+# ldv_stock_std[] <- lapply(ldv_stock_std, gsub, pattern=': High oil and gas supply', replacement='')
+# ldv_cross_std[] <- lapply(ldv_cross_std, gsub, pattern=' mpg gas equiv', replacement='')
+# ldv_fuel_std[] <- lapply(ldv_fuel_std, gsub, pattern=' mpg gas equiv', replacement='')
+
+ldv_stock_std[] <- lapply(ldv_stock_std, gsub, pattern=': High oil and gas supply', replacement='_STOCK')
+ldv_cross_std[] <- lapply(ldv_cross_std, gsub, pattern=' mpg gas equiv', replacement='')
+ldv_fuel_std[] <- lapply(ldv_fuel_std, gsub, pattern=' mpg gas equiv', replacement='_MPG')
+
+# unique(ldv_cross_std$full_name) == unique(ldv_fuel_std $full_name) #all true
+# unique(ldv_cross_std$full_name) == unique(ldv_stock_std $full_name) #all true
+# unique(ldv_fuel_std$full_name) == unique(ldv_stock_std $full_name) #all true
+
+ldv_stock_std
+ldv_cross_std
+ldv_fuel_std
+
+
+
+```
+
+
+# Time Series Conversion
+
+In this section, we will eliminate data after the year 2030 and convert to time series
+
+
+```{r time series, purl=FALSE}
+
+ldv_cross_std
+ldv_cross_ts = as.data.frame( t(ldv_cross_std)) %>% row_to_names(row_number = 1) %>% clean_names()
+ldv_cross_ts
+
+ldv_fuel_ts = as.data.frame( t(ldv_fuel_std)) %>% row_to_names(row_number = 1) %>% clean_names() %>% filter(!row_number() > 12)
+ldv_fuel_ts
+
+ldv_stock_ts = as.data.frame( t(ldv_stock_std)) %>% row_to_names(row_number = 1) %>% clean_names() %>% filter(!row_number() > 12) 
+ldv_stock_ts
+
+ldv_stock_ts = rownames_to_column(ldv_stock_ts, "year")
+ldv_stock_ts[] <- lapply(ldv_stock_ts, gsub, pattern='x', replacement='1/1/')
+#ldv_stock_ts[,1]=as.numeric(ldv_stock_ts[,1])
+
+ldv_fuel_ts = rownames_to_column(ldv_fuel_ts, "year")
+ldv_fuel_ts[] <- lapply(ldv_fuel_ts, gsub, pattern='x', replacement='1/1/')
+#ldv_fuel_ts[,1]=as.numeric(ldv_fuel_ts[,1])
+
+ldv_stock_ts =  ldv_stock_ts %>% mutate_at(-1, as.numeric)
+ldv_fuel_ts = ldv_fuel_ts %>% mutate_at(-1, as.numeric)
+
+ldv_stock_ts
+ldv_fuel_ts
+
+stock_ts = xts(ldv_stock_ts[,-1], as.Date(ldv_stock_ts$year, format='%m/%d/%Y'))
+stock_ts = stock_ts*1000000 #converts from million vehicle to single vehicle units
+stock_ts
+
+fuel_ts = xts(ldv_fuel_ts[,-1], as.Date(ldv_fuel_ts$year, format='%m/%d/%Y'))
+fuel_ts
+
+class(stock_ts)
+class(fuel_ts)
+
+plot.xts(fuel_ts)
+plot.xts(stock_ts)
+
+stock_ts
+fuel_ts
+
+
+
+
+```
+
+
+
+# National VMT
+
+# 
+This contains Light Duty Vehicle (LDV) and other transport mode VMT projections for the United States through 2050. It does not consider information at the state level or by vehicle type. It will need to be formatted to only store LDV data.
+
+```{r load clean conversion}
+
+ldv_vmt <- read_excel("Total_VMT.xlsx", skip=3, n_max=1)
+
+
+ldv_vmt
+
+#Light-Duty Vehicles less than 8,501 pounds
+#unit: Billion vehicle miles traveled
+
+ldv_vmt <- ldv_vmt %>% select(-1,-2) %>% clean_names() %>% select(1:12)
+ldv_vmt
+
+ldv_vmt_ts = as.data.frame( t(ldv_vmt)) # %>% filter(!row_number() > 12)
+ldv_vmt_ts
+
+ldv_vmt_ts = rownames_to_column(ldv_vmt_ts, "year")
+ldv_vmt_ts[] <- lapply(ldv_vmt_ts, gsub, pattern='x', replacement='1/1/')
+
+ldv_vmt_ts = ldv_vmt_ts %>% mutate_at(-1, as.numeric)
+
+vmt_ts = xts(ldv_vmt_ts[,-1], as.Date(ldv_vmt_ts$year, format='%m/%d/%Y'))
+
+
+vmt_ts = vmt_ts * 1000000000 #converts from billion vmt to vmt
+vmt_ts
+
+class(vmt_ts)
+
+plot.xts(vmt_ts)
+
+
+```
+
+
+
+##Write to RDS
+``` {r Write to RDS}
+saveRDS(vmt_ts, "clean_data/vmt_ts")
+saveRDS(stock_ts, "clean_data/stock_ts")
+saveRDS(fuel_ts, "clean_data/fuel_ts")
+saveRDS(ldv_cross_ts, "clean_data/ldv_cross_ts")
+saveRDS(ldv_cross_std, "clean_data/ldv_cross_std")
+```
+
+
+

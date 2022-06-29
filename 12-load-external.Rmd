@@ -1,0 +1,204 @@
+---
+title: "12-load-external"
+output:
+  html_notebook:
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+    number_sections: true
+---
+
+## Load libs, common functions
+```{r Load rmi}
+source(knitr::purl("10-load-data.Rmd"))
+fs::file_delete("10-load-data.R")
+pacman::p_load(DataExplorer)
+```
+
+# US State EV Stock via NREL
+
+2021 Vehicle registration counts derived by the National Renewable Energy Laboratory with data from Experian Information Solutions																
+																
+Notes: 																
+Only all-electric vehicles (EVs)  are included in this chart; plug-in hybrid electric vehicles (PHEVs) are not included.																
+Registration counts are approximate.																
+																
+Worksheet available at afdc.energy.gov/data																
+Last updated June 2021																
+
+
+```{r load ev_stock}
+
+ev_stock_load <- read_excel("EV_Stock_Reg_State.xlsx", skip=2)
+ev_stock_load
+
+#total US EVs is 1019260, therefore Arizona has 0.02822636 of US EV's at 28770 units
+
+ev_state_stock = ev_stock_load %>% select(1:2) %>% filter(State!="Total") %>% rename(ev_stock ="Registration Count")
+
+#sum(ev_state_stock$`Registration Count`) - 1019260
+#total ev stock does not include territories, since sum(50 state row) = US total row. Therefore, can eliminate US row
+
+ev_state_stock
+
+#note, NREL US EV 2020 total of 1019260 closely alligns with RMI reported EV 2020 total of 1107426. RMI total may be higher because it is total vehicle stock, while NREL is registrations only
+
+#(0.196836+0.227069+0.683521)*1000000
+
+```
+
+# US State Vehicle Counts
+
+2010-2020 total vehicle *registration* counts by state as reported by Bureau of Transportation Statistics. This dataset also includes highway VMT, highway use of gasoline, persons traveling, person trips, and other metrics.						
+																
+Notes: 																
+Children aged 0-4 are not counted as persons traveling.
+Puerto Rico is included in US totals but is not shown as an individual state.
+																
+Worksheet available at https://www.bts.gov/browse-statistical-products-and-data/state-transportation-statistics/state-highway-travel															
+Last updated 2020																
+
+
+```{r load state_data}
+
+state_data_load <- read.csv("state_vehicles_registered.csv")
+state_data_load
+
+unique(state_data_load$Measures)
+
+state_stock = state_data_load %>% filter(Measures=="Vehicles", Year==2020) %>% clean_names() %>% rename(State="i_state") %>% select(State, values) %>% rename(Vehicles="values") %>% filter(State!="United States")
+state_stock
+
+#total us stock is 275924442, therefore Arizona has 0.02194 of US vehicles at 6053781	units
+#note, Arizona, therefore, has higher share of US EVs than it does share of US vehicles (.028 vs .022)
+
+#sum(state_stock$Vehicles) - 275924442
+#total stock does not include territories, since sum(50 state rows) = US total row. Therefore, can eliminate US row
+
+
+
+####
+#bonus data, good for gutchecks
+####
+
+# state_hiway_fuel_use = state_data_load %>% filter(Measures=="Highway use of gasoline (thousand gallons)", Year==2020) %>% rename(State="ï..State") %>% select(State, Values) %>% rename(highway_gas_use_thousand_gallons="Values")  %>% filter(State!="United States")
+# state_hiway_fuel_use
+
+#sum(state_hiway_fuel_use$highway_gas_use_thousand_gallons) - 117251028
+
+#2511812/117251028
+#total is 117251028, therefore Arizona has 0.02142252 of US highway gas use at 2511812 thousand gallons used in 2020.
+#BTS in gallon units:
+#2511812000
+
+#compare to IEA US 2020 AZ motorgasoline oil estimate:
+#297.9 trillion btu gasoline
+
+#297900000000000/120476
+
+#IEA in gallon units
+#2472691656
+
+#ratio between BTS and IEA estimate
+
+#2472691656/2511812000
+
+#0.9844254
+
+#IEA state motor gasoline estimate accounts for 98.4% of BTS highway gas estimate, matches up
+
+
+
+### Includes Puerto Rico!
+
+# state_hiway_vmt = state_data_load %>% filter(Measures=="Highway vehicle-miles traveled (millions)", Year==2020) %>% rename(State="ï..State") %>% select(State, Values) %>% rename(highway_vmt_millions="Values") %>% filter(State!="United States")
+# state_hiway_vmt
+
+#sum(state_hiway_vmt$highway_vmt_millions) - 2917383.137
+
+#67921.497/2917383.137
+#total is 2917383.137, therefore Arizona has 0.02328165 of US highway vmt at 67921.497 million miles used in 2020.
+#lets get 2nd opinion from DOT data on all VMT
+
+
+
+
+####
+#quick note
+
+#LDVs are responsible for 0.8964 of US VMT on average
+#https://www.bts.gov/browse-statistical-products-and-data/freight-facts-and-figures/vehicle-miles-traveled-highway
+#2924053/3261772
+```
+
+# US State VMT
+
+2020ANNUAL VEHICLE - MILES by State from the Highway Statistics Series by DOT. 	
+																
+Notes: 																
+Travel for the rural minor collector and rural/urban local functional systems is estimated by the States based on a model or other means and provided to the FHWA on a summary basis. Travel for all other systems are estimated from State-provided data in the Highway Performance Monitoring System.
+Puerto Rico is both included in US totals and is shown as an individual state.
+																
+Worksheet available at https://www.fhwa.dot.gov/policyinformation/statistics/2020/vm2.cfm												
+Last updated 2020																
+
+
+```{r load state_vmt_data}
+
+state_vmt_load <- read.csv("state_vmt_2020.csv", skip=6, nrows=55)
+#?read.csv
+state_vmt_load
+
+state_vmt = state_vmt_load %>% select(STATE, TOTAL.2) 
+state_vmt[] <- lapply(state_vmt, gsub, pattern=',', replacement='')
+
+state_vmt
+
+state_vmt = state_vmt %>% mutate(vmt=as.numeric(TOTAL.2)) %>% select(STATE,vmt) %>% clean_names() %>% na.omit()
+
+state_vmt$vmt = state_vmt$vmt*1000000 # convert from million miles to miles
+
+state_vmt
+
+#65758/2917383
+#6.575800e+10/
+#0.02254006
+
+#Arizona is 0.02254006% of US VMT
+
+#can calculate miles az
+#can calculate miles total LDVs AZ
+#CAN calc miles per LDV
+#can calculate emissions
+#can compare to IEA emisssions
+
+
+####
+#quick note
+
+#LDVs are responsible for 0.8964 of US VMT on average
+#https://www.bts.gov/browse-statistical-products-and-data/freight-facts-and-figures/vehicle-miles-traveled-highway
+#2924053/3261772
+
+
+####
+#quick note support
+#LDVs responsible for 0.8846 of US VMT on average
+#https://www.fhwa.dot.gov/policyinformation/statistics/2020/vm1.cfm
+#2568745/2903622
+```
+
+##Write to RDS
+``` {r Write to RDS}
+#main products
+saveRDS(ev_state_stock, "clean_data/ev_state_stock")
+saveRDS(state_stock, "clean_data/state_stock")
+saveRDS(state_vmt, "clean_data/state_vmt")
+
+#gut check data
+saveRDS(state_hiway_vmt, "clean_data/state_hiway_vmt")
+saveRDS(state_hiway_fuel_use, "clean_data/state_hiway_fuel_use")
+
+```
+
+

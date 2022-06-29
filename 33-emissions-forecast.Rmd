@@ -1,0 +1,255 @@
+---
+title: "33-emissions-forecast"
+output: html_notebook
+---
+
+The purpose of this notebook is forecasting - using both  current features and by generating new features based upon the originals with assumptions.  The forecasts should also be tested here to ensure that they  meet expectations and assumptions about them. 
+
+# Load cleaned data
+
+```{r Load}
+source(knitr::purl("10-load-data.Rmd"))
+fs::file_delete("10-load-data.R")
+
+#Generated data
+#btu_ts = readRDS("answers/btu_ts")
+#btu_ts = readRDS(paste("states/",STATE_KEY,"/ldv_btu_2019_2030",sep=""))
+
+if (GOAL == FALSE){
+
+btu_ts = readRDS(paste("states/",STATE_KEY,"/ldv_btu_2019_2030",sep=""))
+
+} else {
+  
+btu_ts = readRDS(paste("states/",STATE_KEY,"/ldv_btu_2019_2030_EVGOAL_",EV_TARGET,sep=""))
+
+}
+
+
+
+btu_ts
+
+sum(btu_ts)
+
+```
+# Assign emissions based on co2 factor of LDV fuel type
+
+```{r co2_factor_index}
+
+colnames(btu_ts)
+
+#units for all below co2 factors:
+#kg per MMBTU
+
+#EV & fuel cell index: co2 factor 0
+#4,5,6,15,16,20,21,22,31,32
+fev=0
+
+#Gasoline index: co2 factor 70.66
+#1,7,8,10,17,23,24,26
+fgas=70.66
+
+#diesel index: co2 factor 74.14
+#2,9,18,25
+fdes=74.12
+
+#Ethanol index: co2 factor 68.44
+#3,19
+feth=68.44
+
+#natural gas index: co2 factor 52.91
+#11,12,27,28
+fngs=52.91
+
+#propane index: co2 factor 62.88
+#13,14,29,30
+fprp=62.88 
+
+co2_ts = btu_ts/1000000 #convert to MMBTU
+
+for (x in 1:12){
+
+  #each year, we multiply each LDV type's BTU by its fuel co2 factor, yielding a time series of tailpipe emissions per LDV type
+  
+  #ev
+  for (y in c(4,5,6,15,16,20,21,22,31,32)){
+    
+    co2_ts[x,y] = co2_ts[x,y] * fev
+    
+  }
+  
+  #gas
+  for (y in c(1,7,8,10,17,23,24,26)){
+    
+    co2_ts[x,y] = co2_ts[x,y] * fgas
+    
+  }
+
+  #diesel
+  for (y in c(2,9,18,25)){
+    
+    co2_ts[x,y] = co2_ts[x,y] * fdes
+    
+  }
+  
+  #ethanol
+  for (y in c(3,19)){
+    
+    co2_ts[x,y] = co2_ts[x,y] * feth
+    
+  }
+  
+  #natural gas
+  for (y in c(11,12,27,28)){
+    
+    co2_ts[x,y] = co2_ts[x,y] * fngs
+    
+  }
+  
+  #propane
+  for (y in c(13,14,29,30)){
+    
+    co2_ts[x,y] = co2_ts[x,y] * fprp
+    
+  }
+}
+
+colnames(co2_ts) = gsub("_btu", "_kg_co2", colnames(co2_ts))
+
+co2_ts
+
+plot(co2_ts)
+
+```
+
+
+
+
+
+
+##Write to RDS
+
+``` {r export answer}
+
+
+#saveRDS(co2_ts, paste("states/",STATE_KEY,"/ldv_co2_2019_2030",sep=""))
+#saveRDS(co2_ts, "answers/co2_ts")
+
+
+if (GOAL == FALSE){
+
+saveRDS(co2_ts, paste("states/",STATE_KEY,"/ldv_co2_2019_2030",sep=""))
+
+} else {
+  
+saveRDS(co2_ts, paste("states/",STATE_KEY,"/ldv_co2_2019_2030_EVGOAL_",EV_TARGET,sep=""))
+
+}
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

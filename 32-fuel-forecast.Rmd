@@ -1,0 +1,330 @@
+---
+title: "32-fuel-forecast"
+output: html_notebook
+---
+
+The purpose of this notebook is forecasting - using both  current features and by generating new features based upon the originals with assumptions.  The forecasts should also be tested here to ensure that they  meet expectations and assumptions about them. 
+
+# Load cleaned data
+
+```{r Load}
+source(knitr::purl("10-load-data.Rmd"))
+fs::file_delete("10-load-data.R")
+
+#Case Study data
+fuel_ts = readRDS("clean_data/fuel_ts")
+vmt_ts = readRDS("clean_data/vmt_ts")
+
+#External data
+state_vmt = readRDS("clean_data/state_vmt")
+
+#Generated data
+
+if (GOAL == FALSE){
+
+az_stock_adj_ts = readRDS(paste("states/",STATE_KEY,"/ldv_stock_2019_2030",sep=""))
+
+} else {
+  
+az_stock_adj_ts = readRDS(paste("states/",STATE_KEY,"/ldv_stock_2019_2030_EVGOAL_",EV_TARGET,sep=""))
+
+}
+#checks to see if stock modified to meet target
+
+#az_stock_adj_ts = readRDS(paste("states/",STATE_KEY,"/ldv_stock_2019_2030",sep=""))
+
+fuel_ts
+vmt_ts
+state_vmt
+az_stock_adj_ts
+
+#Arizona is 0.02254006% of US VMT
+
+#can calculate miles az
+#can calculate miles total LDVs AZ
+#CAN calc miles per LDV
+#can calculate emissions
+#can compare to IEA emisssions
+
+
+####
+#quick note
+
+#LDVs are responsible for 0.8964 of US VMT on average
+#https://www.bts.gov/browse-statistical-products-and-data/freight-facts-and-figures/vehicle-miles-traveled-highway
+#2924053/3261772
+
+
+####
+#quick note support
+#LDVs responsible for 0.8846 of US VMT on average
+#https://www.fhwa.dot.gov/policyinformation/statistics/2020/vm1.cfm
+#2568745/2903622
+
+#(0.8846+0.8964)/2
+#0.8905
+
+```
+
+# Calculate Ratio AZ VMT to US VMT
+
+```{r ratio_vmt}
+
+us_vmt = state_vmt %>% filter(state=="Grand Total")
+value_us_vmt = sum(us_vmt$vmt)
+value_us_vmt
+
+az_vmt = state_vmt %>% filter(state=="Arizona")
+value_az_vmt = sum(az_vmt$vmt)
+value_az_vmt
+
+az_vmt_ratio = value_az_vmt/value_us_vmt
+az_vmt_percent = az_vmt_ratio *100
+az_vmt_percent
+#2.25%
+
+```
+
+According to data from FHWA, at `r value_az_vmt` miles, Arizona represented `az_vmt_percent`% of the total US VMT in 2020. If we make the following assumptions, we can assign vehicle miles traveled to each individual LDV by type.
+
+## Arizona LDV VMT represents the same proportion of the state total VMT as national LDV VMT does to national total VMT
+
+### Data from both FHWA and BTS support that national LDV VMT makes up 89.05% of all national motor vehicle VMT
+### Assume same is true for Arizona
+### https://www.fhwa.dot.gov/policyinformation/statistics/2020/vm1.cfm
+### https://www.bts.gov/browse-statistical-products-and-data/freight-facts-and-figures/vehicle-miles-traveled-highway
+
+###
+
+## Each LDV travels approximately the same number of miles, regardless of type
+
+### Supported by data from DOE that shows cars, light trucks, busses, and delivery trucks have about the same annual VMT
+### https://afdc.energy.gov/data/10309
+
+# Estimate Arizona VMT forecast
+
+```{r vmt_forecast_az}
+
+az_vmt_ts = vmt_ts * az_vmt_ratio
+plot(az_vmt_ts)
+
+az_vmt_ts
+
+value_az_vmt
+
+```
+
+
+# Assign VMT to Stock
+
+The following section assigns VMT to each Arizona vehicle by type. For each year, the average VMT per LDV is calculated. Then, each LDV type has its stock multiplied by the average VMT. The result is a time series showing total VMT per type per year.
+
+
+```{r assign_vmt}
+
+#az_stock_adj_ts = readRDS("answers/az_ldv_stock_2019_2030")
+
+az_vmt_per_type_ts = az_stock_adj_ts
+
+for (x in 1:12){
+
+  ann_veh_sum = sum(az_vmt_per_type_ts[x,1:32])
+
+  ann_vmt = az_vmt_ts[x]
+
+  vmt_per_veh = as.numeric(ann_vmt / ann_veh_sum) #checks out with national average VMT per vehicle
+
+  #by dividing each year's AZ VMT (ann_vmt) by the total AZ stock of vehicles that year (ann_veh_sum), we get an average vmt per LDV vehicle in AZ
+  
+  for (y in 1:32){
+    
+    az_vmt_per_type_ts[x,y] = az_vmt_per_type_ts[x,y] * vmt_per_veh
+    
+    #each year, we multiply each LDV stock by vmt_per_veh, yielding total vmt per LDV type per year 
+  }
+}
+  
+az_vmt_per_type_ts
+
+value_az_ev
+
+
+```
+
+# Assign gallons per type per year using fuel economy
+
+```{r gallons}
+
+#fuel_ts
+#az_vmt_per_type_ts
+
+dim(fuel_ts) == dim(az_vmt_per_type_ts)
+#TRUE
+
+colnames(fuel_ts) == colnames(az_vmt_per_type_ts)
+#FALSE, doesn't affect math but be aware
+
+colnames(fuel_ts)
+colnames(az_vmt_per_type_ts)
+
+gallons_ts = az_vmt_per_type_ts/fuel_ts #divide miles by mpg to yield gallons
+
+gallons_ts[!is.finite(gallons_ts)] <- 0 #handles NaNs
+
+#first two years of 100 mile EV trucks throwing NaNs, follow up on this
+
+gallons_ts
+sum(gallons_ts)
+
+
+
+```
+
+# Assign BTU per type, based on fuel type
+
+```{r}
+
+#BTU per gasoline gallon :
+btu_gasgl = 120476
+
+#note, all fuel economy values are in MPGE (miles per gal gas equivalent) so we will only use this btu/gas value to calculate btu
+
+
+btu_ts = gallons_ts*btu_gasgl
+btu_ts
+
+colnames(btu_ts) = gsub("_stock", "_btu", colnames(btu_ts))
+
+
+```
+
+
+
+
+
+
+##Write to RDS
+
+``` {r export answer}
+
+#saveRDS(btu_ts, "answers/btu_ts")
+#saveRDS(btu_ts, paste("states/",STATE_KEY,"/ldv_btu_2019_2030",sep=""))
+
+
+if (GOAL == FALSE){
+
+saveRDS(btu_ts, paste("states/",STATE_KEY,"/ldv_btu_2019_2030",sep=""))
+
+} else {
+  
+saveRDS(btu_ts, paste("states/",STATE_KEY,"/ldv_btu_2019_2030_EVGOAL_",EV_TARGET,sep=""))
+
+}
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,60 @@
+---
+title: "50-rmi-answers"
+output: html_notebook
+---
+
+The purpose of this notebook is to load and view the time series objects for submission to the RMI US Program Technical Assessment.
+
+All submitted graphics are generated in notebook 40-data-visualization
+
+# Clean and load all data sets
+
+```{r required libraries for feat eng}
+source(knitr::purl("10-load-data.Rmd", quiet=TRUE))
+fs::file_delete("10-load-data.R")
+
+```
+
+# 1A: LDV Stock Times Series
+
+```{r}
+az_stock_ts  = readRDS(paste("states/","Arizona","/ldv_stock_2019_2030",sep=""))
+az_stock_ts
+plot(az_stock_ts)
+```
+
+
+
+# 1B: LDV BTU Times Series
+
+```{r}
+az_btu_ts = readRDS(paste("states/","Arizona","/ldv_btu_2019_2030",sep=""))
+az_btu_ts
+plot(az_btu_ts)
+```
+
+# 1C: LDV CO2 Times Series
+
+```{r}
+az_co2_ts = readRDS(paste("states/","Arizona","/ldv_co2_2019_2030",sep=""))
+az_co2_ts
+plot(az_co2_ts)
+```
+
+# 4A: LDV Stock, EV Target, Times Series
+
+```{r}
+goal_stock_ts = readRDS(paste("states/Arizona/ldv_stock_2019_2030_EVGOAL_0.45",sep=""))
+goal_stock_ts
+plot(goal_stock_ts)
+```
+
+# 4B: LDV Emissions, EV Target, Time Series
+
+```{r}
+goal_co2_ts = readRDS(paste("states//Arizona//ldv_co2_2019_2030_EVGOAL_0.45",sep=""))
+goal_co2_ts
+plot(goal_co2_ts)
+```
+
+

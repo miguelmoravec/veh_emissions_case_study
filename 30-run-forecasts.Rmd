@@ -1,0 +1,226 @@
+---
+title: "30-run-forecasts"
+output: html_notebook
+---
+
+The purpose of this notebook is run forecasts for desired features - using the current features or by generating new features based upon them in other notebooks. The data should also be tested here to ensure that the forecasts generated meet expectations and assumptions about them.
+
+The entire RMI assignment can be completed from this notebook.
+
+# Clean and load all data sets
+
+```{r required libraries for feat eng}
+source(knitr::purl("10-load-data.Rmd", quiet=TRUE))
+fs::file_delete("10-load-data.R")
+
+source(knitr::purl("11-load-rmi.Rmd", quiet=TRUE))
+fs::file_delete("11-load-rmi.R")
+
+source(knitr::purl("12-load-external.Rmd", quiet=TRUE))
+fs::file_delete("12-load-external.R")
+```
+
+
+
+
+# Set Forecast Parameters
+
+```{r parameters}
+
+###########################
+#this sets the parameters for the desired forecast across all needed notebooks
+
+STATE_KEY="Arizona"
+
+#STATE_KEY="Alabama"
+
+#STATE_KEY="Indiana"
+
+#STATE_KEY="Colorado"
+
+#STATE_KEY="Wisconsin"
+
+#STATE_KEY = "California"
+
+GOAL=FALSE
+
+EV_TARGET=0.45
+
+AGGRESSIVE = FALSE
+
+```
+
+# Generate timeseries forecast
+
+```{r run_all_notebooks}
+
+###########################
+#this calls notebook 31 and generates a time series with the above parameters
+
+source(knitr::purl("31-stock-forecast.Rmd", quiet=TRUE))
+fs::file_delete("31-stock-forecast.R")
+
+####
+#quick results check
+####
+
+#state_stock_ts = readRDS(paste("states/",STATE_KEY,"/ldv_stock_2019_2030",sep=""))
+#state_stock_ts
+
+# goal_stock_ts = readRDS(paste("states/",STATE_KEY,"/ldv_stock_2019_2030_EVGOAL_",EV_TARGET,sep=""))
+# goal_stock_ts
+#sum(goal_stock_ts[12,c(4,5,6,20,21,22)])
+
+#az_stock_ts  = readRDS(paste("states/","Arizona","/ldv_stock_2019_2030",sep=""))
+#plot(az_stock_ts)
+# sum(az_stock_ts[1,c(4,5,6,20,21,22)])
+
+#
+
+#
+
+#
+
+###########################
+#this calls notebook 32 and generates a time series of state BTU use based on Veh stock, VMT, and fuel use.
+
+source(knitr::purl("32-fuel-forecast.Rmd", quiet=TRUE))
+fs::file_delete("32-fuel-forecast.R")
+
+####
+#quick results check
+####
+
+#state_btu_ts = readRDS(paste("states/",STATE_KEY,"/ldv_btu_2019_2030",sep=""))
+#state_btu_ts
+
+#goal_btu_ts = readRDS(paste("states/",STATE_KEY,"/ldv_btu_2019_2030_EVGOAL_",EV_TARGET,sep=""))
+#goal_btu_ts
+
+# az_btu_ts = readRDS(paste("states/","Arizona","/ldv_btu_2019_2030",sep=""))
+# az_btu_ts
+
+#
+
+#
+
+#
+
+###########################
+#this calls notebook 33 and generates a time series of state CO2 emissions based BTU and fuel type
+
+source(knitr::purl("33-emissions-forecast.Rmd", quiet=TRUE))
+fs::file_delete("33-emissions-forecast.R")
+
+
+####
+#quick results check
+####
+
+#state_co2_ts = readRDS(paste("states/",STATE_KEY,"/ldv_co2_2019_2030",sep=""))
+#state_co2_ts
+
+#goal_co2_ts = readRDS(paste("states/",STATE_KEY,"/ldv_co2_2019_2030_EVGOAL_",EV_TARGET,sep=""))
+#goal_co2_ts
+#((sum(goal_co2_ts[12]))/(1000))/1000000 #conversion from kg to million metric tons
+
+#az_co2_ts = readRDS(paste("states/","Arizona","/ldv_co2_2019_2030",sep=""))
+#az_co2_ts
+
+
+##########################
+# all forecasts have been generated! 
+
+# all output data is saved as time series r objects in the appropriate 'states' subdirectory
+
+```
+
+# Gut-check validity of generated time series
+
+```{r emissions gutchecks, eval = FALSE}
+
+##########################
+# Gut-check zone to see if output lines up with reality
+
+#Emissions Gutcheck
+state_data_2019 = state_co2_ts[1]
+state_data_2019
+((sum(state_data_2019))/(1000))/1000000 #conversion from kg to million metric tons
+
+# Emissions Gutcheck
+
+# Foundation makes sense:
+
+  ## model accurately generates same 2019 LDV emissions for AZ as it does for other states that with similar 2019 transportation emissions according to EIA 
+    ### Alabama, Indiana, Colorado
+  ## output consistent with what EIA independently reports for transportation emissions (not factored into model)
+  ## https://www.eia.gov/environment/emissions/state/
+  ## does a terrible job predicting California emissions for 2019, noted
+  ## maybe due to differences in VMT, EV fleet size, veh stock use, etc
+
+# Forecasts make sense
+
+  ## similar emissions states with less EVs produce more emissions by 2030
+  ## Alabama (many less EVs than AZ) -> (model produces much more emissions by 2030 than AZ) -> (makes sense)
+  ## Indiana (less EVs than AZ) -> (model produces more emissions than AZ) ->(makes sense)
+  ## Colorado (slightly less EVs than AZ) -> (model produces nearly equal emissions with AZ) -> (makes sense)
+
+
+#Emissions Gutcheck
+az_data_2019 = az_co2_ts[1]
+az_data_2019
+((sum(az_data_2019))/(1000))/1000000 #conversion from kg to million metric tons
+
+# expecting doubledigits LDV mmTons emissions per state 
+
+  ## average state 38 mmTons total transportation, AZ at 39
+    ### https://www.eia.gov/environment/emissions/state/
+
+  ## LDV are ~58% of transportation emissions
+    ### https://www.c2es.org/content/regulating-transportation-sector-carbon-emissions/
+    ### https://www.epa.gov/sites/default/files/2021-04/documents/us-ghg-inventory-2021-main-text.pdf
+
+# receiving double digit mmTons emissions per state, but lower than expected 
+
+  ## for AZ, 16 mmTons in 2019, ~40% of state total, instead of 58% state total as expected, still pretty good)
+  ## checked model, VMT per vehicle is good, fuel to btu to co2 is good
+  ## may be related to lower mpg when vehicles idling, driving in city
+
+#Emissions Gutcheck using Goal model
+
+goal_data_2019 = goal_co2_ts[1]
+goal_data_2019
+((sum(state_data_2019))/(1000))/1000000 #conversion from kg to million metric tons
+
+#2019 emissions in goal model same as non-goal Arizona, good
+
+#now lets see if goal reduced emissions by 2030...
+
+goal_data_2030 = goal_co2_ts[12]
+goal_data_2030
+((sum(goal_data_2030))/(1000))/1000000 #conversion from kg to million metric tons
+#8 mmtons
+
+az_data_2030 = az_co2_ts[12]
+az_data_2030
+((sum(az_data_2030))/(1000))/1000000 #conversion from kg to million metric tons
+#13 mmtons
+
+#success! the 2030 target reduced emissions by 5 mmtons
+
+
+
+# Other notes
+
+
+# does not work well with states drastically different than AZ in VMT, population, EV fleets, such as CA, which  massively underreports emissions when modeling using same assumptions
+```
+
+
+
+
+
+
+
+
+

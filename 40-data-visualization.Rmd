@@ -1,0 +1,573 @@
+---
+title: "40-data-visualizations"
+output: html_notebook
+---
+
+The purpose of this notebook is data visualization
+
+```{r required libraries for feat eng}
+source(knitr::purl("10-load-data.Rmd", quiet=TRUE))
+fs::file_delete("10-load-data.R")
+p_load(reshape2)
+```
+
+
+
+```{r load_data_fig1}
+
+az_stock_ts  = readRDS(paste("states/","Arizona","/ldv_stock_2019_2030",sep=""))
+plot(az_stock_ts)
+
+az_btu_ts = readRDS(paste("states/","Arizona","/ldv_btu_2019_2030",sep=""))
+plot(az_btu_ts)
+
+az_co2_ts = readRDS(paste("states/","Arizona","/ldv_co2_2019_2030",sep=""))
+plot(az_co2_ts)
+
+goal_stock_ts = readRDS(paste("states/Arizona/ldv_stock_2019_2030_EVGOAL_0.45",sep=""))
+plot(goal_stock_ts)
+
+goal_btu_ts = readRDS(paste("states//Arizona//ldv_btu_2019_2030_EVGOAL_0.45",sep=""))
+plot(goal_btu_ts)
+
+goal_co2_ts = readRDS(paste("states//Arizona//ldv_co2_2019_2030_EVGOAL_0.45",sep=""))
+plot(goal_co2_ts)
+
+
+##########################
+# must select state key to see states other than AZ
+
+```
+```{r}
+
+unique(colnames(az_stock_ts))
+
+az_stock_rmi = as.data.frame(az_stock_ts) %>% 
+  mutate(Gas_Passenger = conventional_cars_gasoline_stock) %>% 
+  mutate(Diesel_Passenger = conventional_cars_tdi_diesel_stock) %>%
+  mutate(Ethanol_Passenger = alternative_fuel_cars_ethanol_flex_fuel_ice_stock) %>%
+  mutate(EV_Passenger = alternative_fuel_cars_100_mile_electric_vehicle_stock + alternative_fuel_cars_200_mile_electric_vehicle_stock + alternative_fuel_cars_300_mile_electric_vehicle_stock) %>%
+  mutate(Hybrid_Passenger = alternative_fuel_cars_plug_in_10_gasoline_hybrid_stock + alternative_fuel_cars_plug_in_40_gasoline_hybrid_stock + alternative_fuel_cars_electric_diesel_hybrid_stock + alternative_fuel_cars_electric_gasoline_hybrid_stock) %>%
+  mutate(Natural_Gas_Passenger = alternative_fuel_cars_natural_gas_ice_stock + alternative_fuel_cars_natural_gas_bi_fuel_stock) %>%
+  mutate(Propane_Passenger = alternative_fuel_cars_propane_ice_stock + alternative_fuel_cars_propane_bi_fuel_stock) %>%
+  mutate(Fuel_Cell_Passenger = alternative_fuel_cars_fuel_cell_methanol_stock + alternative_fuel_cars_fuel_cell_hydrogen_stock) %>%
+  mutate(Gasoline_Freight = conventional_light_trucks_gasoline_stock) %>%
+  mutate(Diesel_Freight = conventional_light_trucks_tdi_diesel_stock) %>%
+  mutate(Ethanol_Freight = alternative_fuel_light_trucks_ethanol_flex_fuel_ice_stock) %>%
+  mutate(EV_Freight = alternative_fuel_light_trucks_100_mile_electric_vehicle_stock + alternative_fuel_light_trucks_200_mile_electric_vehicle_stock + alternative_fuel_light_trucks_300_mile_electric_vehicle_stock) %>%
+  mutate(Hybrid_Freight = alternative_fuel_light_trucks_plug_in_10_gasoline_hybrid_stock + alternative_fuel_light_trucks_plug_in_40_gasoline_hybrid_stock + alternative_fuel_light_trucks_electric_diesel_hybrid_stock + alternative_fuel_light_trucks_electric_gasoline_hybrid_stock) %>%
+  mutate(Natural_Gas_Freight = alternative_fuel_light_trucks_natural_gas_ice_stock + alternative_fuel_light_trucks_natural_gas_bi_fuel_stock) %>%
+  mutate(Propane_Freight = alternative_fuel_light_trucks_propane_ice_stock + alternative_fuel_light_trucks_propane_bi_fuel_stock) %>%
+  mutate(Fuel_Cell_Freight = alternative_fuel_light_trucks_fuel_cell_methanol_stock + alternative_fuel_light_trucks_fuel_cell_hydrogen_stock) %>%
+  select(Gas_Passenger:Fuel_Cell_Freight)
+  
+az_stock_rmi <- tibble::rownames_to_column(az_stock_rmi, "Year")
+
+az_stock_rmi
+
+
+
+az_stock_rmi_long = melt(az_stock_rmi, id="Year") %>% mutate(year = substr(Year, 1, 4)) %>% mutate(ldv_type=variable) %>% mutate(stock=value) %>% select(year, ldv_type, stock)
+
+az_stock_rmi_long
+
+az_stock_rmi_long_simple = az_stock_rmi_long %>% filter(ldv_type == "Gas_Passenger" | ldv_type == "EV_Passenger" | ldv_type == "Gasoline_Freight" | ldv_type == "EV_Freight" )
+az_stock_rmi_long_simple
+
+az_stock_rmi_long_gas = az_stock_rmi_long %>% filter(ldv_type == "Gas_Passenger" | ldv_type == "Gasoline_Freight" )
+az_stock_rmi_long_gas
+
+az_stock_rmi_long_alt = az_stock_rmi_long %>% filter(ldv_type != "Gas_Passenger" & ldv_type != "Gasoline_Freight" )
+az_stock_rmi_long_alt
+```
+```{r }
+
+ggplot(az_stock_rmi_long, aes(x=year, y=stock, colour=ldv_type)) +
+       geom_line(aes(group=ldv_type), size = 1) + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))   +
+  ggtitle("Forecast: 2019-2030\nArizona Vehicle Stock\n(All LDV Types)")
+
+ggsave("images/az_stock.png")
+
+ggplot(az_stock_rmi_long_simple, aes(x=year, y=stock, colour=ldv_type)) +
+       geom_line(aes(group=ldv_type), size = 1) + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))  +
+  ggtitle("Forecast: 2019-2030\nArizona Vehicle Stock\n(Gas and EV Passenger/Freight Only)")
+
+ggplot(az_stock_rmi_long_gas, aes(x=year, y=stock, colour=ldv_type)) +
+       geom_line(aes(group=ldv_type), size = 1) + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))  +
+  ggtitle("Forecast: 2019-2030\nArizona Vehicle Stock\n(Gas Passenger/Freight Only)")
+
+ggsave("images/az_stock_gas.png")
+
+ggplot(az_stock_rmi_long_alt, aes(x=year, y=stock, colour=ldv_type)) +
+       geom_line(aes(group=ldv_type), size = 1) + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  ggtitle("Forecast: 2019-2030\nArizona Vehicle Stock\n(Excluding Gas Passenger & Gas Freight)")
+
+ggsave("images/az_stock_alt.png")
+
+
+```
+
+
+```{r}
+
+unique(colnames(az_btu_ts))
+
+az_btu_rmi = as.data.frame(az_btu_ts) %>% 
+  mutate(Gas_Passenger = conventional_cars_gasoline_btu) %>% 
+  mutate(Diesel_Passenger = conventional_cars_tdi_diesel_btu) %>%
+  mutate(Ethanol_Passenger = alternative_fuel_cars_ethanol_flex_fuel_ice_btu) %>%
+  mutate(EV_Passenger = alternative_fuel_cars_100_mile_electric_vehicle_btu + alternative_fuel_cars_200_mile_electric_vehicle_btu + alternative_fuel_cars_300_mile_electric_vehicle_btu) %>%
+  mutate(Hybrid_Passenger = alternative_fuel_cars_plug_in_10_gasoline_hybrid_btu + alternative_fuel_cars_plug_in_40_gasoline_hybrid_btu + alternative_fuel_cars_electric_diesel_hybrid_btu + alternative_fuel_cars_electric_gasoline_hybrid_btu) %>%
+  mutate(Natural_Gas_Passenger = alternative_fuel_cars_natural_gas_ice_btu + alternative_fuel_cars_natural_gas_bi_fuel_btu) %>%
+  mutate(Propane_Passenger = alternative_fuel_cars_propane_ice_btu + alternative_fuel_cars_propane_bi_fuel_btu) %>%
+  mutate(Fuel_Cell_Passenger = alternative_fuel_cars_fuel_cell_methanol_btu + alternative_fuel_cars_fuel_cell_hydrogen_btu) %>%
+  mutate(Gasoline_Freight = conventional_light_trucks_gasoline_btu) %>%
+  mutate(Diesel_Freight = conventional_light_trucks_tdi_diesel_btu) %>%
+  mutate(Ethanol_Freight = alternative_fuel_light_trucks_ethanol_flex_fuel_ice_btu) %>%
+  mutate(EV_Freight = alternative_fuel_light_trucks_100_mile_electric_vehicle_btu + alternative_fuel_light_trucks_200_mile_electric_vehicle_btu + alternative_fuel_light_trucks_300_mile_electric_vehicle_btu) %>%
+  mutate(Hybrid_Freight = alternative_fuel_light_trucks_plug_in_10_gasoline_hybrid_btu + alternative_fuel_light_trucks_plug_in_40_gasoline_hybrid_btu + alternative_fuel_light_trucks_electric_diesel_hybrid_btu + alternative_fuel_light_trucks_electric_gasoline_hybrid_btu) %>%
+  mutate(Natural_Gas_Freight = alternative_fuel_light_trucks_natural_gas_ice_btu + alternative_fuel_light_trucks_natural_gas_bi_fuel_btu) %>%
+  mutate(Propane_Freight = alternative_fuel_light_trucks_propane_ice_btu + alternative_fuel_light_trucks_propane_bi_fuel_btu) %>%
+  mutate(Fuel_Cell_Freight = alternative_fuel_light_trucks_fuel_cell_methanol_btu + alternative_fuel_light_trucks_fuel_cell_hydrogen_btu) %>%
+  select(Gas_Passenger:Fuel_Cell_Freight)
+  
+az_btu_rmi <- tibble::rownames_to_column(az_btu_rmi, "Year")
+
+az_btu_rmi
+
+
+
+az_btu_rmi_long = melt(az_btu_rmi, id="Year") %>% mutate(year = substr(Year, 1, 4)) %>% mutate(ldv_type=variable) %>% mutate(btu=value) %>% select(year, ldv_type, btu)
+
+az_btu_rmi_long
+
+az_btu_rmi_long_total = az_btu_rmi_long %>% group_by(year) %>% summarize(btu_total=sum(btu))
+az_btu_rmi_long_total
+
+az_btu_rmi_long_simple = az_btu_rmi_long %>% filter(ldv_type == "Gas_Passenger" | ldv_type == "EV_Passenger" | ldv_type == "Gasoline_Freight" | ldv_type == "EV_Freight" )
+az_btu_rmi_long_simple
+
+az_btu_rmi_long_gas = az_btu_rmi_long %>% filter(ldv_type == "Gas_Passenger" | ldv_type == "Gasoline_Freight" )
+az_btu_rmi_long_gas
+
+az_btu_rmi_long_alt = az_btu_rmi_long %>% filter(ldv_type != "Gas_Passenger" & ldv_type != "Gasoline_Freight" )
+az_btu_rmi_long_alt
+```
+
+```{r}
+
+ggplot(az_btu_rmi_long, aes(x=year, y=btu, colour=ldv_type)) +
+       geom_line(aes(group=ldv_type), size = 1) + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))   +
+  ggtitle("Forecast: 2019-2030\nArizona BTU's Used\n(All LDV Types)")
+
+ggsave("images/az_btu.png")
+
+ggplot(az_btu_rmi_long_simple, aes(x=year, y=btu, colour=ldv_type)) +
+       geom_line(aes(group=ldv_type), size = 1) + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))  +
+  ggtitle("Forecast: 2019-2030\nArizona BTU's Used\n(Gas and EV Passenger/Freight Only)")
+
+ggplot(az_btu_rmi_long_gas, aes(x=year, y=btu, colour=ldv_type)) +
+       geom_line(aes(group=ldv_type), size = 1) + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))  +
+  ggtitle("Forecast: 2019-2030\nArizona BTU's Used\n(Gas Passenger/Freight Only)")
+
+ggsave("images/az_btu_gas.png")
+
+ggplot(az_btu_rmi_long_alt, aes(x=year, y=btu, colour=ldv_type)) +
+       geom_line(aes(group=ldv_type), size = 1) + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  ggtitle("Forecast: 2019-2030\nArizona BTU's Used\n(Excluding Gas Passenger & Gas Freight)")
+
+ggsave("images/az_btu_alt.png")
+
+ggplot(az_btu_rmi_long_total, aes(x=year, y=btu_total)) +
+       geom_line(aes(group=1), size = 1) + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  ggtitle("Forecast: 2019-2030\nArizona BTU's Used\n(Business as Normal)")
+
+ggsave("images/az_btu_total.png",width=8,height=5)
+
+
+```
+
+```{r}
+
+az_co2_ts
+
+unique(colnames(az_co2_ts))
+
+az_co2_rmi = as.data.frame(az_co2_ts) %>% 
+  mutate(Gas_Passenger = conventional_cars_gasoline_kg_co2) %>% 
+  mutate(Diesel_Passenger = conventional_cars_tdi_diesel_kg_co2) %>%
+  mutate(Ethanol_Passenger = alternative_fuel_cars_ethanol_flex_fuel_ice_kg_co2) %>%
+  mutate(EV_Passenger = alternative_fuel_cars_100_mile_electric_vehicle_kg_co2 + alternative_fuel_cars_200_mile_electric_vehicle_kg_co2 + alternative_fuel_cars_300_mile_electric_vehicle_kg_co2) %>%
+  mutate(Hybrid_Passenger = alternative_fuel_cars_plug_in_10_gasoline_hybrid_kg_co2 + alternative_fuel_cars_plug_in_40_gasoline_hybrid_kg_co2 + alternative_fuel_cars_electric_diesel_hybrid_kg_co2 + alternative_fuel_cars_electric_gasoline_hybrid_kg_co2) %>%
+  mutate(Natural_Gas_Passenger = alternative_fuel_cars_natural_gas_ice_kg_co2 + alternative_fuel_cars_natural_gas_bi_fuel_kg_co2) %>%
+  mutate(Propane_Passenger = alternative_fuel_cars_propane_ice_kg_co2 + alternative_fuel_cars_propane_bi_fuel_kg_co2) %>%
+  mutate(Fuel_Cell_Passenger = alternative_fuel_cars_fuel_cell_methanol_kg_co2 + alternative_fuel_cars_fuel_cell_hydrogen_kg_co2) %>%
+  mutate(Gasoline_Freight = conventional_light_trucks_gasoline_kg_co2) %>%
+  mutate(Diesel_Freight = conventional_light_trucks_tdi_diesel_kg_co2) %>%
+  mutate(Ethanol_Freight = alternative_fuel_light_trucks_ethanol_flex_fuel_ice_kg_co2) %>%
+  mutate(EV_Freight = alternative_fuel_light_trucks_100_mile_electric_vehicle_kg_co2 + alternative_fuel_light_trucks_200_mile_electric_vehicle_kg_co2 + alternative_fuel_light_trucks_300_mile_electric_vehicle_kg_co2) %>%
+  mutate(Hybrid_Freight = alternative_fuel_light_trucks_plug_in_10_gasoline_hybrid_kg_co2 + alternative_fuel_light_trucks_plug_in_40_gasoline_hybrid_kg_co2 + alternative_fuel_light_trucks_electric_diesel_hybrid_kg_co2 + alternative_fuel_light_trucks_electric_gasoline_hybrid_kg_co2) %>%
+  mutate(Natural_Gas_Freight = alternative_fuel_light_trucks_natural_gas_ice_kg_co2 + alternative_fuel_light_trucks_natural_gas_bi_fuel_kg_co2) %>%
+  mutate(Propane_Freight = alternative_fuel_light_trucks_propane_ice_kg_co2 + alternative_fuel_light_trucks_propane_bi_fuel_kg_co2) %>%
+  mutate(Fuel_Cell_Freight = alternative_fuel_light_trucks_fuel_cell_methanol_kg_co2 + alternative_fuel_light_trucks_fuel_cell_hydrogen_kg_co2) %>%
+  select(Gas_Passenger:Fuel_Cell_Freight)
+  
+az_co2_rmi <- tibble::rownames_to_column(az_co2_rmi, "Year")
+
+az_co2_rmi
+
+
+
+az_co2_rmi_long = melt(az_co2_rmi, id="Year") %>% mutate(year = substr(Year, 1, 4)) %>% mutate(ldv_type=variable) %>% mutate(co2=value) %>% select(year, ldv_type, co2)
+
+az_co2_rmi_long
+
+az_co2_rmi_long_total = az_co2_rmi_long %>% group_by(year) %>% summarize(co2_total=sum(co2))
+az_co2_rmi_long_total
+
+az_co2_rmi_long_simple = az_co2_rmi_long %>% filter(ldv_type == "Gas_Passenger" | ldv_type == "EV_Passenger" | ldv_type == "Gasoline_Freight" | ldv_type == "EV_Freight" )
+az_co2_rmi_long_simple
+
+az_co2_rmi_long_gas = az_co2_rmi_long %>% filter(ldv_type == "Gas_Passenger" | ldv_type == "Gasoline_Freight" )
+az_co2_rmi_long_gas
+
+az_co2_rmi_long_alt = az_co2_rmi_long %>% filter(ldv_type != "Gas_Passenger" & ldv_type != "Gasoline_Freight" )
+az_co2_rmi_long_alt
+```
+
+```{r}
+
+ggplot(az_co2_rmi_long, aes(x=year, y=co2, colour=ldv_type)) +
+       geom_line(aes(group=ldv_type), size = 1) + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))   +
+  ggtitle("Forecast: 2019-2030\nArizona Emissions, kg CO2\n(All LDV Types)")
+
+ggsave("images/az_co2.png")
+
+ggplot(az_co2_rmi_long_simple, aes(x=year, y=co2, colour=ldv_type)) +
+       geom_line(aes(group=ldv_type), size = 1) + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))  +
+  ggtitle("Forecast: 2019-2030\nArizona Emissions, kg CO2\n(Gas and EV Passenger/Freight Only)")
+
+ggplot(az_co2_rmi_long_gas, aes(x=year, y=co2, colour=ldv_type)) +
+       geom_line(aes(group=ldv_type), size = 1) + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))  +
+  ggtitle("Forecast: 2019-2030\nArizona Emissions, kg CO2\n(Gas Passenger/Freight Only)")
+
+ggsave("images/az_co2_gas.png")
+
+ggplot(az_co2_rmi_long_alt, aes(x=year, y=co2, colour=ldv_type)) +
+       geom_line(aes(group=ldv_type), size = 1) + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  ggtitle("Forecast: 2019-2030\nArizona Emissions, kg CO2\n(Excluding Gas Passenger & Gas Freight)")
+
+ggsave("images/az_co2_alt.png")
+
+ggplot(az_co2_rmi_long_total, aes(x=year, y=co2_total)) +
+       geom_line(aes(group=1), size = 1) + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  ggtitle("Forecast: 2019-2030\nArizona CO2 Emissions\n(Business as Normal)")
+
+ggsave("images/az_co2_total.png",width=8,height=5)
+
+
+```
+
+
+#
+#
+#
+#
+#
+#
+
+########## same thing but for EV target
+
+#
+#
+#
+#
+#
+#
+#
+
+
+
+```{r rmi classify data stock}
+
+unique(colnames(goal_stock_ts))
+
+goal_stock_rmi = as.data.frame(goal_stock_ts) %>% 
+  mutate(Gas_Passenger = conventional_cars_gasoline_stock) %>% 
+  mutate(Diesel_Passenger = conventional_cars_tdi_diesel_stock) %>%
+  mutate(Ethanol_Passenger = alternative_fuel_cars_ethanol_flex_fuel_ice_stock) %>%
+  mutate(EV_Passenger = alternative_fuel_cars_100_mile_electric_vehicle_stock + alternative_fuel_cars_200_mile_electric_vehicle_stock + alternative_fuel_cars_300_mile_electric_vehicle_stock) %>%
+  mutate(Hybrid_Passenger = alternative_fuel_cars_plug_in_10_gasoline_hybrid_stock + alternative_fuel_cars_plug_in_40_gasoline_hybrid_stock + alternative_fuel_cars_electric_diesel_hybrid_stock + alternative_fuel_cars_electric_gasoline_hybrid_stock) %>%
+  mutate(Natural_Gas_Passenger = alternative_fuel_cars_natural_gas_ice_stock + alternative_fuel_cars_natural_gas_bi_fuel_stock) %>%
+  mutate(Propane_Passenger = alternative_fuel_cars_propane_ice_stock + alternative_fuel_cars_propane_bi_fuel_stock) %>%
+  mutate(Fuel_Cell_Passenger = alternative_fuel_cars_fuel_cell_methanol_stock + alternative_fuel_cars_fuel_cell_hydrogen_stock) %>%
+  mutate(Gasoline_Freight = conventional_light_trucks_gasoline_stock) %>%
+  mutate(Diesel_Freight = conventional_light_trucks_tdi_diesel_stock) %>%
+  mutate(Ethanol_Freight = alternative_fuel_light_trucks_ethanol_flex_fuel_ice_stock) %>%
+  mutate(EV_Freight = alternative_fuel_light_trucks_100_mile_electric_vehicle_stock + alternative_fuel_light_trucks_200_mile_electric_vehicle_stock + alternative_fuel_light_trucks_300_mile_electric_vehicle_stock) %>%
+  mutate(Hybrid_Freight = alternative_fuel_light_trucks_plug_in_10_gasoline_hybrid_stock + alternative_fuel_light_trucks_plug_in_40_gasoline_hybrid_stock + alternative_fuel_light_trucks_electric_diesel_hybrid_stock + alternative_fuel_light_trucks_electric_gasoline_hybrid_stock) %>%
+  mutate(Natural_Gas_Freight = alternative_fuel_light_trucks_natural_gas_ice_stock + alternative_fuel_light_trucks_natural_gas_bi_fuel_stock) %>%
+  mutate(Propane_Freight = alternative_fuel_light_trucks_propane_ice_stock + alternative_fuel_light_trucks_propane_bi_fuel_stock) %>%
+  mutate(Fuel_Cell_Freight = alternative_fuel_light_trucks_fuel_cell_methanol_stock + alternative_fuel_light_trucks_fuel_cell_hydrogen_stock) %>%
+  select(Gas_Passenger:Fuel_Cell_Freight)
+  
+goal_stock_rmi <- tibble::rownames_to_column(goal_stock_rmi, "Year")
+
+goal_stock_rmi
+
+
+
+goal_stock_rmi_long = melt(goal_stock_rmi, id="Year") %>% mutate(year = substr(Year, 1, 4)) %>% mutate(ldv_type=variable) %>% mutate(stock=value) %>% select(year, ldv_type, stock)
+
+goal_stock_rmi_long
+
+goal_stock_rmi_long_simple = goal_stock_rmi_long %>% filter(ldv_type == "Gas_Passenger" | ldv_type == "EV_Passenger" | ldv_type == "Gasoline_Freight" | ldv_type == "EV_Freight" )
+goal_stock_rmi_long_simple
+
+goal_stock_rmi_long_gas = goal_stock_rmi_long %>% filter(ldv_type == "Gas_Passenger" | ldv_type == "Gasoline_Freight" )
+goal_stock_rmi_long_gas
+
+goal_stock_rmi_long_alt = goal_stock_rmi_long %>% filter(ldv_type != "Gas_Passenger" & ldv_type != "Gasoline_Freight" )
+goal_stock_rmi_long_alt
+```
+```{r }
+
+ggplot(goal_stock_rmi_long, aes(x=year, y=stock, colour=ldv_type)) +
+       geom_line(aes(group=ldv_type), size = 1) + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))   +
+  ggtitle("Forecast: 2019-2030\nArizona Stock w/ EV Target\n(All LDV Types)")
+
+ggsave("images/goal_stock.png", width = 8, height = 5)
+
+# ggplot(goal_stock_rmi_long_simple, aes(x=year, y=stock, colour=ldv_type)) +
+#        geom_line(aes(group=ldv_type), size = 1) + 
+#   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))  +
+#   ggtitle("Forecast: 2019-2030\nArizona Vehicle Stock\n(Gas and EV Passenger/Freight Only)")
+
+# ggplot(goal_stock_rmi_long_gas, aes(x=year, y=stock, colour=ldv_type)) +
+#        geom_line(aes(group=ldv_type), size = 1) + 
+#   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))  +
+#   ggtitle("Forecast: 2019-2030\nArizona Vehicle Stock\n(Gas Passenger/Freight Only)")
+# 
+# ggsave("images/goal_stock_gas.png")
+
+# ggplot(goal_stock_rmi_long_alt, aes(x=year, y=stock, colour=ldv_type)) +
+#        geom_line(aes(group=ldv_type), size = 1) + 
+#   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+#   ggtitle("Forecast: 2019-2030\nArizona Vehicle Stock\n(Excluding Gas Passenger & Gas Freight)")
+# 
+# ggsave("images/goal_stock_alt.png")
+
+
+```
+
+
+```{r rmi classify data btu}
+
+unique(colnames(goal_btu_ts))
+
+goal_btu_rmi = as.data.frame(goal_btu_ts) %>% 
+  mutate(Gas_Passenger = conventional_cars_gasoline_btu) %>% 
+  mutate(Diesel_Passenger = conventional_cars_tdi_diesel_btu) %>%
+  mutate(Ethanol_Passenger = alternative_fuel_cars_ethanol_flex_fuel_ice_btu) %>%
+  mutate(EV_Passenger = alternative_fuel_cars_100_mile_electric_vehicle_btu + alternative_fuel_cars_200_mile_electric_vehicle_btu + alternative_fuel_cars_300_mile_electric_vehicle_btu) %>%
+  mutate(Hybrid_Passenger = alternative_fuel_cars_plug_in_10_gasoline_hybrid_btu + alternative_fuel_cars_plug_in_40_gasoline_hybrid_btu + alternative_fuel_cars_electric_diesel_hybrid_btu + alternative_fuel_cars_electric_gasoline_hybrid_btu) %>%
+  mutate(Natural_Gas_Passenger = alternative_fuel_cars_natural_gas_ice_btu + alternative_fuel_cars_natural_gas_bi_fuel_btu) %>%
+  mutate(Propane_Passenger = alternative_fuel_cars_propane_ice_btu + alternative_fuel_cars_propane_bi_fuel_btu) %>%
+  mutate(Fuel_Cell_Passenger = alternative_fuel_cars_fuel_cell_methanol_btu + alternative_fuel_cars_fuel_cell_hydrogen_btu) %>%
+  mutate(Gasoline_Freight = conventional_light_trucks_gasoline_btu) %>%
+  mutate(Diesel_Freight = conventional_light_trucks_tdi_diesel_btu) %>%
+  mutate(Ethanol_Freight = alternative_fuel_light_trucks_ethanol_flex_fuel_ice_btu) %>%
+  mutate(EV_Freight = alternative_fuel_light_trucks_100_mile_electric_vehicle_btu + alternative_fuel_light_trucks_200_mile_electric_vehicle_btu + alternative_fuel_light_trucks_300_mile_electric_vehicle_btu) %>%
+  mutate(Hybrid_Freight = alternative_fuel_light_trucks_plug_in_10_gasoline_hybrid_btu + alternative_fuel_light_trucks_plug_in_40_gasoline_hybrid_btu + alternative_fuel_light_trucks_electric_diesel_hybrid_btu + alternative_fuel_light_trucks_electric_gasoline_hybrid_btu) %>%
+  mutate(Natural_Gas_Freight = alternative_fuel_light_trucks_natural_gas_ice_btu + alternative_fuel_light_trucks_natural_gas_bi_fuel_btu) %>%
+  mutate(Propane_Freight = alternative_fuel_light_trucks_propane_ice_btu + alternative_fuel_light_trucks_propane_bi_fuel_btu) %>%
+  mutate(Fuel_Cell_Freight = alternative_fuel_light_trucks_fuel_cell_methanol_btu + alternative_fuel_light_trucks_fuel_cell_hydrogen_btu) %>%
+  select(Gas_Passenger:Fuel_Cell_Freight)
+  
+goal_btu_rmi <- tibble::rownames_to_column(goal_btu_rmi, "Year")
+
+goal_btu_rmi
+
+
+
+goal_btu_rmi_long = melt(goal_btu_rmi, id="Year") %>% mutate(year = substr(Year, 1, 4)) %>% mutate(ldv_type=variable) %>% mutate(btu=value) %>% select(year, ldv_type, btu)
+
+goal_btu_rmi_long
+
+goal_btu_rmi_long_total = goal_btu_rmi_long %>% group_by(year) %>% summarize(btu_total=sum(btu))
+goal_btu_rmi_long_total
+
+goal_btu_rmi_long_simple = goal_btu_rmi_long %>% filter(ldv_type == "Gas_Passenger" | ldv_type == "EV_Passenger" | ldv_type == "Gasoline_Freight" | ldv_type == "EV_Freight" )
+goal_btu_rmi_long_simple
+
+goal_btu_rmi_long_gas = goal_btu_rmi_long %>% filter(ldv_type == "Gas_Passenger" | ldv_type == "Gasoline_Freight" )
+goal_btu_rmi_long_gas
+
+goal_btu_rmi_long_alt = goal_btu_rmi_long %>% filter(ldv_type != "Gas_Passenger" & ldv_type != "Gasoline_Freight" )
+goal_btu_rmi_long_alt
+```
+
+```{r _btu}
+
+# ggplot(goal_btu_rmi_long, aes(x=year, y=btu, colour=ldv_type)) +
+#        geom_line(aes(group=ldv_type), size = 1) + 
+#   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))   +
+#   ggtitle("Forecast: 2019-2030\nArizona BTU's Used\n(All LDV Types)")
+# 
+# ggsave("images/goal_btu.png")
+# 
+# ggplot(goal_btu_rmi_long_simple, aes(x=year, y=btu, colour=ldv_type)) +
+#        geom_line(aes(group=ldv_type), size = 1) + 
+#   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))  +
+#   ggtitle("Forecast: 2019-2030\nArizona BTU's Used\n(Gas and EV Passenger/Freight Only)")
+# 
+# ggplot(goal_btu_rmi_long_gas, aes(x=year, y=btu, colour=ldv_type)) +
+#        geom_line(aes(group=ldv_type), size = 1) + 
+#   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))  +
+#   ggtitle("Forecast: 2019-2030\nArizona BTU's Used\n(Gas Passenger/Freight Only)")
+# 
+# ggsave("images/goal_btu_gas.png")
+# 
+# ggplot(goal_btu_rmi_long_alt, aes(x=year, y=btu, colour=ldv_type)) +
+#        geom_line(aes(group=ldv_type), size = 1) + 
+#   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+#   ggtitle("Forecast: 2019-2030\nArizona BTU's Used\n(Excluding Gas Passenger & Gas Freight)")
+# 
+# ggsave("images/goal_btu_alt.png")
+
+ggplot(goal_btu_rmi_long_total, aes(x=year, y=btu_total)) +
+       geom_line(aes(group=1), size = 1) + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  ggtitle("Forecast: 2019-2030\nArizona BTU's Used\n(45% EV Target)")
+
+ggsave("images/goal_btu_total.png")
+
+
+```
+
+```{r rmi classify data co2}
+
+goal_co2_ts
+
+unique(colnames(goal_co2_ts))
+
+goal_co2_rmi = as.data.frame(goal_co2_ts) %>% 
+  mutate(Gas_Passenger = conventional_cars_gasoline_kg_co2) %>% 
+  mutate(Diesel_Passenger = conventional_cars_tdi_diesel_kg_co2) %>%
+  mutate(Ethanol_Passenger = alternative_fuel_cars_ethanol_flex_fuel_ice_kg_co2) %>%
+  mutate(EV_Passenger = alternative_fuel_cars_100_mile_electric_vehicle_kg_co2 + alternative_fuel_cars_200_mile_electric_vehicle_kg_co2 + alternative_fuel_cars_300_mile_electric_vehicle_kg_co2) %>%
+  mutate(Hybrid_Passenger = alternative_fuel_cars_plug_in_10_gasoline_hybrid_kg_co2 + alternative_fuel_cars_plug_in_40_gasoline_hybrid_kg_co2 + alternative_fuel_cars_electric_diesel_hybrid_kg_co2 + alternative_fuel_cars_electric_gasoline_hybrid_kg_co2) %>%
+  mutate(Natural_Gas_Passenger = alternative_fuel_cars_natural_gas_ice_kg_co2 + alternative_fuel_cars_natural_gas_bi_fuel_kg_co2) %>%
+  mutate(Propane_Passenger = alternative_fuel_cars_propane_ice_kg_co2 + alternative_fuel_cars_propane_bi_fuel_kg_co2) %>%
+  mutate(Fuel_Cell_Passenger = alternative_fuel_cars_fuel_cell_methanol_kg_co2 + alternative_fuel_cars_fuel_cell_hydrogen_kg_co2) %>%
+  mutate(Gasoline_Freight = conventional_light_trucks_gasoline_kg_co2) %>%
+  mutate(Diesel_Freight = conventional_light_trucks_tdi_diesel_kg_co2) %>%
+  mutate(Ethanol_Freight = alternative_fuel_light_trucks_ethanol_flex_fuel_ice_kg_co2) %>%
+  mutate(EV_Freight = alternative_fuel_light_trucks_100_mile_electric_vehicle_kg_co2 + alternative_fuel_light_trucks_200_mile_electric_vehicle_kg_co2 + alternative_fuel_light_trucks_300_mile_electric_vehicle_kg_co2) %>%
+  mutate(Hybrid_Freight = alternative_fuel_light_trucks_plug_in_10_gasoline_hybrid_kg_co2 + alternative_fuel_light_trucks_plug_in_40_gasoline_hybrid_kg_co2 + alternative_fuel_light_trucks_electric_diesel_hybrid_kg_co2 + alternative_fuel_light_trucks_electric_gasoline_hybrid_kg_co2) %>%
+  mutate(Natural_Gas_Freight = alternative_fuel_light_trucks_natural_gas_ice_kg_co2 + alternative_fuel_light_trucks_natural_gas_bi_fuel_kg_co2) %>%
+  mutate(Propane_Freight = alternative_fuel_light_trucks_propane_ice_kg_co2 + alternative_fuel_light_trucks_propane_bi_fuel_kg_co2) %>%
+  mutate(Fuel_Cell_Freight = alternative_fuel_light_trucks_fuel_cell_methanol_kg_co2 + alternative_fuel_light_trucks_fuel_cell_hydrogen_kg_co2) %>%
+  select(Gas_Passenger:Fuel_Cell_Freight)
+  
+goal_co2_rmi <- tibble::rownames_to_column(goal_co2_rmi, "Year")
+
+goal_co2_rmi
+
+
+
+goal_co2_rmi_long = melt(goal_co2_rmi, id="Year") %>% mutate(year = substr(Year, 1, 4)) %>% mutate(ldv_type=variable) %>% mutate(co2=value) %>% select(year, ldv_type, co2)
+
+goal_co2_rmi_long
+
+goal_co2_rmi_long_total = goal_co2_rmi_long %>% group_by(year) %>% summarize(co2_total=sum(co2))
+goal_co2_rmi_long_total
+
+goal_co2_rmi_long_simple = goal_co2_rmi_long %>% filter(ldv_type == "Gas_Passenger" | ldv_type == "EV_Passenger" | ldv_type == "Gasoline_Freight" | ldv_type == "EV_Freight" )
+goal_co2_rmi_long_simple
+
+goal_co2_rmi_long_gas = goal_co2_rmi_long %>% filter(ldv_type == "Gas_Passenger" | ldv_type == "Gasoline_Freight" )
+goal_co2_rmi_long_gas
+
+goal_co2_rmi_long_alt = goal_co2_rmi_long %>% filter(ldv_type != "Gas_Passenger" & ldv_type != "Gasoline_Freight" )
+goal_co2_rmi_long_alt
+```
+
+```{r _co2}
+
+ggplot(goal_co2_rmi_long, aes(x=year, y=co2, colour=ldv_type)) +
+       geom_line(aes(group=ldv_type), size = 1) + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))   +
+  ggtitle("Forecast: 2019-2030\nArizona Emissions, kg CO2\n(All LDV Types)")
+
+ggsave("images/goal_co2.png")
+
+ggplot(goal_co2_rmi_long_simple, aes(x=year, y=co2, colour=ldv_type)) +
+       geom_line(aes(group=ldv_type), size = 1) + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))  +
+  ggtitle("Forecast: 2019-2030\nArizona Emissions, kg CO2\n(Gas and EV Passenger/Freight Only)")
+
+ggplot(goal_co2_rmi_long_gas, aes(x=year, y=co2, colour=ldv_type)) +
+       geom_line(aes(group=ldv_type), size = 1) + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))  +
+  ggtitle("Forecast: 2019-2030\nArizona Emissions, kg CO2\n(Gas Passenger/Freight Only)")
+
+ggsave("images/goal_co2_gas.png")
+
+ggplot(goal_co2_rmi_long_alt, aes(x=year, y=co2, colour=ldv_type)) +
+       geom_line(aes(group=ldv_type), size = 1) + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  ggtitle("Forecast: 2019-2030\nArizona Emissions, kg CO2\n(Excluding Gas Passenger & Gas Freight)")
+
+ggsave("images/goal_co2_alt.png")
+
+ggplot(goal_co2_rmi_long_total, aes(x=year, y=co2_total)) +
+       geom_line(aes(group=1), size = 1) + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  ggtitle("Forecast: 2019-2030\nArizona CO2 Emissions\n(45% EV Target)")
+
+ggsave("images/goal_co2_total.png")
+
+
+```
+
+```{r compare totals co2}
+
+azco2 = az_co2_rmi_long_total %>% rename(biz_as_normal=co2_total)
+azco2
+
+goalco2 = goal_co2_rmi_long_total %>% rename(ev45_target=co2_total)
+goalco2
+
+co2_compare = merge(azco2,goalco2)
+co2_compare = melt(co2_compare) %>% rename(scenario="variable") %>% rename(kg_co2=value)
+co2_compare
+
+ggplot(co2_compare, aes(x=year, y=kg_co2, colour=scenario)) +
+       geom_line(aes(group=scenario), size = 1) + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  ggtitle("Forecast: 2019-2030\nArizona Emissions, kg CO2\nComparing Scenarios")
+
+ggsave("images/co2_compare.png", height=5, width=8)
+
+```
+
+
+
+
+
