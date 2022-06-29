@@ -29,7 +29,7 @@ Last updated June 2021
 
 ```{r load ev_stock}
 
-ev_stock_load <- read_excel("EV_Stock_Reg_State.xlsx", skip=2)
+ev_stock_load <- read_excel("raw_data/EV_Stock_Reg_State.xlsx", skip=2)
 ev_stock_load
 
 #total US EVs is 1019260, therefore Arizona has 0.02822636 of US EV's at 28770 units
@@ -61,7 +61,7 @@ Last updated 2020
 
 ```{r load state_data}
 
-state_data_load <- read.csv("state_vehicles_registered.csv")
+state_data_load <- read.csv("raw_data/state_vehicles_registered.csv")
 state_data_load
 
 unique(state_data_load$Measures)
@@ -145,7 +145,7 @@ Last updated 2020
 
 ```{r load state_vmt_data}
 
-state_vmt_load <- read.csv("state_vmt_2020.csv", skip=6, nrows=55)
+state_vmt_load <- read.csv("raw_data/state_vmt_2020.csv", skip=6, nrows=55)
 #?read.csv
 state_vmt_load
 
@@ -196,8 +196,8 @@ saveRDS(state_stock, "clean_data/state_stock")
 saveRDS(state_vmt, "clean_data/state_vmt")
 
 #gut check data
-saveRDS(state_hiway_vmt, "clean_data/state_hiway_vmt")
-saveRDS(state_hiway_fuel_use, "clean_data/state_hiway_fuel_use")
+#saveRDS(state_hiway_vmt, "clean_data/state_hiway_vmt")
+#saveRDS(state_hiway_fuel_use, "clean_data/state_hiway_fuel_use")
 
 ```
 

@@ -20,7 +20,7 @@ This contains Light Duty Vehicle (LDV) stock projections for the United States t
 
 ```{r load ldv_stock_natl_frcst}
 
-ldv_stock_natl_frcst <- read_excel("LDV_Stock_National.xlsx", skip=5)
+ldv_stock_natl_frcst <- read_excel("raw_data/LDV_Stock_National.xlsx", skip=5)
 ldv_stock_natl_frcst
 
 ```
@@ -49,7 +49,7 @@ This contains Light Duty Vehicle (LDV) fuel economy projections for the United S
 
 ```{r load ldv_fuel_econ}
 
-ldv_fuel_econ <- read_excel("LDV_Fuel_Economy.xlsx", skip=5)
+ldv_fuel_econ <- read_excel("raw_data/LDV_Fuel_Economy.xlsx", skip=5)
 ldv_fuel_econ
 
 ```
@@ -77,7 +77,7 @@ This contains Light Duty Vehicle (LDV) fuel economy projections for the United S
 
 ```{r load ldv_cross}
 
-ldv_cross <- read_excel("Suggested_VEH_Crosswalk.xlsx") 
+ldv_cross <- read_excel("raw_data/Suggested_VEH_Crosswalk.xlsx") 
 ldv_cross <- ldv_cross %>% clean_names() %>% select(-
 table_39_vehicle_category, -table_39_fuel) %>% rename(full_name = table_40)
 
@@ -188,7 +188,7 @@ This contains Light Duty Vehicle (LDV) and other transport mode VMT projections 
 
 ```{r load clean conversion}
 
-ldv_vmt <- read_excel("Total_VMT.xlsx", skip=3, n_max=1)
+ldv_vmt <- read_excel("raw_data/Total_VMT.xlsx", skip=3, n_max=1)
 
 
 ldv_vmt
