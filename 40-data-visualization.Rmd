@@ -3,7 +3,11 @@ title: "40-data-visualizations"
 output: html_notebook
 ---
 
-The purpose of this notebook is data visualization
+The purpose of this notebook is data visualization.
+
+The code below is long, redundant, and deserves an automating function.
+
+However, the best 9 plots from this code are readily available for viewing in the 'images' subdirectory in the main repo.
 
 ```{r required libraries for feat eng}
 source(knitr::purl("10-load-data.Rmd", quiet=TRUE))
